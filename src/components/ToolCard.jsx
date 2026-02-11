@@ -37,6 +37,12 @@ export default function ToolCard({ tool }) {
           Location: {tool.location}
         </div>
 
+        {tool.distance !== undefined && (
+          <div style={{ fontSize: "13px", color: "#10b981", fontWeight: "500" }}>
+            📍 {tool.distance < 1 ? `${(tool.distance * 1000).toFixed(0)}m away` : `${tool.distance.toFixed(1)}km away`}
+          </div>
+        )}
+
         {/* Optional button */}
         <div style={{ marginTop: "14px" }}>
           <Link href={`/tool/${tool.id}`} style={{ color: "#2563eb", fontWeight: "600", fontSize: "14px" }}>

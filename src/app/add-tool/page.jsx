@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Navbar from "@/components/Navbar";
-import { createServerClient } from "@supabase/ssr";
+import { supabase } from "@/lib/supabase/client";
 
 export default function AddToolPage() {
   const [formData, setFormData] = useState({
@@ -15,6 +15,9 @@ export default function AddToolPage() {
     condition: "",
     location: "",
   });
+
+  const [userLocation, setUserLocation] = useState(null);
+  const [locationLoading, setLocationLoading] = useState(false);
 
   const [images, setImages] = useState([]); // File[]
   const [previews, setPreviews] = useState([]); // string[]
@@ -32,6 +35,40 @@ export default function AddToolPage() {
   ];
 
   const conditions = ["Like New", "Excellent", "Good", "Fair", "Acceptable"];
+
+  const getCurrentLocation = () => {
+    setLocationLoading(true);
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          
+          // Reverse geocoding to get address
+          try {
+            const response = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=en`);
+            const data = await response.json();
+            const address = data.display_name || `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+            
+            setFormData(prev => ({ ...prev, location: address }));
+            setUserLocation({ latitude, longitude, address });
+          } catch (error) {
+            console.error('Error getting address:', error);
+            setFormData(prev => ({ ...prev, location: `${latitude.toFixed(6)}, ${longitude.toFixed(6)}` }));
+            setUserLocation({ latitude, longitude });
+          }
+          setLocationLoading(false);
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          alert('Could not get your location. Please enter it manually.');
+          setLocationLoading(false);
+        }
+      );
+    } else {
+      alert('Geolocation is not supported by your browser. Please enter location manually.');
+      setLocationLoading(false);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -94,7 +131,7 @@ export default function AddToolPage() {
 
       const ownerId = session.user.id;
 
-      // 1) Insert tool
+      // 1) Insert tool with coordinates
       const payload = {
         owner_id: ownerId,
         name: formData.name,
@@ -105,6 +142,8 @@ export default function AddToolPage() {
         model: formData.model || null,
         condition: formData.condition,
         location: formData.location,
+        latitude: userLocation?.latitude || null,
+        longitude: userLocation?.longitude || null,
         is_available: true,
       };
 
@@ -181,7 +220,7 @@ export default function AddToolPage() {
                   name="name"
                   value={formData.name}
                   onChange={handleChange}
-                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "6px" }}
+                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "6px", color: "#000000" }}
                   placeholder="e.g., Power Drill, Circular Saw"
                   required
                 />
@@ -196,7 +235,7 @@ export default function AddToolPage() {
                   name="category"
                   value={formData.category}
                   onChange={handleChange}
-                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "6px" }}
+                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "6px", color: "#000000" }}
                   required
                 >
                   <option value="">Select a category</option>
@@ -218,9 +257,8 @@ export default function AddToolPage() {
                   name="pricePerDay"
                   value={formData.pricePerDay}
                   onChange={handleChange}
-                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "6px" }}
-                  placeholder="15.00"
-                  step="0.01"
+                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "6px", color: "#000000" }}
+                  placeholder="150"
                   min="0"
                   required
                 />
@@ -235,7 +273,7 @@ export default function AddToolPage() {
                   name="condition"
                   value={formData.condition}
                   onChange={handleChange}
-                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "6px" }}
+                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "6px", color: "#000000" }}
                   required
                 >
                   <option value="">Select condition</option>
@@ -257,7 +295,7 @@ export default function AddToolPage() {
                   name="brand"
                   value={formData.brand}
                   onChange={handleChange}
-                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "6px" }}
+                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "6px", color: "#000000" }}
                   placeholder="e.g., DeWalt, Makita"
                 />
               </div>
@@ -272,7 +310,7 @@ export default function AddToolPage() {
                   name="model"
                   value={formData.model}
                   onChange={handleChange}
-                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "6px" }}
+                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "6px", color: "#000000" }}
                   placeholder="e.g., DCD771C2"
                 />
               </div>
@@ -287,7 +325,7 @@ export default function AddToolPage() {
                 name="description"
                 value={formData.description}
                 onChange={handleChange}
-                style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "6px", minHeight: "100px" }}
+                style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "6px", minHeight: "100px", color: "#000000" }}
                 placeholder="Describe your tool..."
                 rows="4"
                 required
@@ -298,16 +336,40 @@ export default function AddToolPage() {
               <label htmlFor="location" style={{ display: "block", fontSize: "14px", fontWeight: "500", color: "#374151", marginBottom: "8px" }}>
                 Pickup Location *
               </label>
-              <input
-                type="text"
-                id="location"
-                name="location"
-                value={formData.location}
-                onChange={handleChange}
-                style={{ width: "100%", padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "6px" }}
-                placeholder="Enter your address or neighborhood"
-                required
-              />
+              <div style={{ display: "flex", gap: "8px", marginBottom: "8px" }}>
+                <input
+                  type="text"
+                  id="location"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleChange}
+                  style={{ flex: 1, padding: "8px 12px", border: "1px solid #d1d5db", borderRadius: "6px", color: "#000000" }}
+                  placeholder="Enter your address or neighborhood"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={getCurrentLocation}
+                  disabled={locationLoading}
+                  style={{
+                    padding: "8px 16px",
+                    backgroundColor: locationLoading ? "#9ca3af" : "#3b82f6",
+                    color: "white",
+                    border: "none",
+                    borderRadius: "6px",
+                    fontSize: "14px",
+                    fontWeight: "500",
+                    cursor: locationLoading ? "not-allowed" : "pointer"
+                  }}
+                >
+                  {locationLoading ? "Getting..." : "📍 Use Current"}
+                </button>
+              </div>
+              {userLocation && (
+                <p style={{ fontSize: "12px", color: "#6b7280" }}>
+                  📍 Location detected: {userLocation.address}
+                </p>
+              )}
             </div>
 
             <div style={{ marginBottom: '32px' }}>
